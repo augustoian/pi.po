@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Pong - Jogo de Ping Pong Classic Retro-Futurista</title>
+    <!-- Importação do Tailwind CSS para interface fluida e estilosa -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background-color: #080711;
+            color: #ffffff;
+            overflow-x: hidden;
+            touch-action: none; /* Previne rolagem de tela em dispositivos touch */
+        }
+
+        .neon-border-cyan {
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.5), inset 0 0 15px rgba(0, 243, 255, 0.3);
+            border: 2px solid #00f3ff;
+        }
+
+        .neon-border-pink {
+            box-shadow: 0 0 15px rgba(255, 0, 127, 0.5), inset 0 0 15px rgba(255, 0, 127, 0.3);
+            border: 2px solid #ff007f;
+        }
+
+        .neon-text-cyan {
+            text-shadow: 0 0 8px rgba(0, 243, 255, 0.8), 0 0 20px rgba(0, 243, 255, 0.5);
+        }
+
+        .neon-text-pink {
+            text-shadow: 0 0 8px rgba(255, 0, 127, 0.8), 0 0 20px rgba(255, 0, 127, 0.5);
+        }
+
+        .btn-neon {
+            transition: all 0.2s ease-in-out;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-neon:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+            border-color: #00f3ff;
+            color: #00f3ff;
+        }
+
+        .btn-neon-active {
+            background: rgba(0, 243, 255, 0.2) !important;
+            border-color: #00f3ff !important;
+            color: #00f3ff !important;
+            box-shadow: 0 0 12px rgba(0, 243, 255, 0.5);
+        }
+
+        /* Ocultar barra de rolagem mantendo a navegação */
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-2 sm:p-4 select-none">
+
+    <header class="w-full max-w-4xl flex flex-col sm:flex-row items-center justify-between gap-4 my-2">
+        <h1 class="text-3xl sm:text-4xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-pink-500 neon-text-cyan">
+            NEON<span class="text-white">PONG</span>
+        </h1>
+
+        <!-- Placar -->
+        <div class="flex items-center gap-6 sm:gap-12 bg-slate-900/80 px-6 py-2 rounded-2xl border border-slate-700/50 backdrop-blur-md">
+            <div class="text-center">
+                <span id="player1Name" class="text-xs text-cyan-400 block font-bold tracking-widest uppercase">Jogador 1</span>
+                <span id="scoreP1" class="text-3xl sm:text-4xl font-extrabold neon-text-cyan text-cyan-400">0</span>
+            </div>
+            <div class="text-xl font-bold text-slate-500">:</div>
+            <div class="text-center">
+                <span id="player2Name" class="text-xs text-pink-500 block font-bold tracking-widest uppercase">IA</span>
+                <span id="scoreP2" class="text-3xl sm:text-4xl font-extrabold neon-text-pink text-pink-500">0</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="relative w-full max-w-4xl flex flex-col items-center justify-center my-auto">
+        <!-- Container com proporção de aspecto mantida para o Canvas -->
+        <div class="relative w-full aspect-[16/9] max-h-[70vh] bg-slate-950 rounded-2xl overflow-hidden neon-border-cyan flex items-center justify-center">
+            <!-- Canvas do Jogo -->
+            <canvas id="pongCanvas" class="w-full h-full block cursor-none"></canvas>
+
+            <!-- Overlay de Início/Pausa/Fim de jogo -->
+            <div id="gameOverlay" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-10 transition-all duration-300">
+                <h2 id="overlayTitle" class="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-white to-pink-500 mb-4 tracking-wider">
+                    PRONTO PARA JOGAR?
+                </h2>
+                <p id="overlaySubtitle" class="text-slate-300 text-sm sm:text-base max-w-md mb-8">
+                    Escolha o modo de jogo, ajuste a dificuldade e clique em Iniciar para entrar na arena.
+                </p>
+
+                <!-- Botão Principal de Ação -->
+                <button id="btnStart" class="px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-extrabold text-lg rounded-xl shadow-lg shadow-cyan-500/30 transition-all transform hover:scale-105 active:scale-95">
+                    INICIAR PARTIDA
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <footer class="w-full max-w-4xl flex flex-col gap-3 my-2">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-900/60 p-3 rounded-2xl border border-slate-800 backdrop-blur-sm">
+            
+            <!-- Seleção de Modo -->
+            <div class="flex flex-col gap-1">
+                <label class="text-xs text-slate-400 font-bold tracking-wider uppercase">Modo de Jogo</label>
+                <div class="flex gap-2">
+                    <button id="btnMode1P" class="btn-neon btn-neon-active flex-1 py-2 text-xs font-bold rounded-lg">1 JOGADOR</button>
+                    <button id="btnMode2P" class="btn-neon flex-1 py-2 text-xs font-bold rounded-lg">2 JOGADORES</button>
+                </div>
+            </div>
+
+            <!-- Seleção de Dificuldade (Modo 1P) -->
+            <div id="difficultyContainer" class="flex flex-col gap-1">
+                <label class="text-xs text-slate-400 font-bold tracking-wider uppercase">Dificuldade da IA</label>
+                <div class="flex gap-2">
+                    <button id="btnDiffEasy" class="btn-neon flex-1 py-2 text-xs font-bold rounded-lg">FÁCIL</button>
+                    <button id="btnDiffMedium" class="btn-neon btn-neon-active flex-1 py-2 text-xs font-bold rounded-lg">MÉDIO</button>
+                    <button id="btnDiffHard" class="btn-neon flex-1 py-2 text-xs font-bold rounded-lg">IMPOSSÍVEL</button>
+                </div>
+            </div>
+
+            <!-- Controles do Jogo -->
+            <div class="flex flex-col gap-1">
+                <label class="text-xs text-slate-400 font-bold tracking-wider uppercase">Controles do Jogo</label>
+                <div class="flex gap-2">
+                    <button id="btnPause" class="btn-neon flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1">
+                        <span>PAUSAR</span>
+                    </button>
+                    <button id="btnReset" class="btn-neon flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1 text-pink-400 border-pink-500/30">
+                        <span>REINICIAR</span>
+                    </button>
+                    <button id="btnSound" class="btn-neon p-2 text-xs font-bold rounded-lg w-10 flex items-center justify-center" title="Alternar Som">
+                        🔊
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Instruções de Teclas -->
+        <div class="flex flex-wrap justify-between items-center text-[11px] text-slate-400 px-2 gap-2">
+            <div><span class="text-cyan-400 font-bold">Jogador 1:</span> Teclas W/S ou Mover o Mouse / Toque na Tela</div>
+            <div id="p2ControlHint"><span class="text-pink-400 font-bold">Jogador 2:</span> Teclas Seta Cima / Seta Baixo</div>
+            <div><span class="text-yellow-400 font-bold">Espaço:</span> Pausar | Primeiro a marcar <span class="font-bold text-white">7 pontos</span> vence!</div>
+        </div>
+    </footer>
+
+    <script>
+        // SINTETIZADOR DE ÁUDIO (Web Audio API - Sem arquivos externos)
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+            }
+
+            playPaddleHit() {
+                if (!this.enabled) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(450, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.08);
+                
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.08);
+            }
+
+            playWallHit() {
+                if (!this.enabled) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.05);
+
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.05);
+            }
+
+            playScore() {
+                if (!this.enabled) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.setValueAtTime(600, this.ctx.currentTime + 0.1);
+                
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+
+            playWin() {
+                if (!this.enabled) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const notes = [400, 500, 600, 800];
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+                    gain.gain.setValueAtTime(0.2, now + idx * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.15);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.1);
+                    osc.stop(now + idx * 0.1 + 0.15);
+                });
+            }
+        }
+
+        const sound = new SoundFX();
+
+        const canvas = document.getElementById('pongCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Configurações de dimensão lógica (Independente da resolução da tela)
+        const LOGICAL_WIDTH = 800;
+        const LOGICAL_HEIGHT = 450;
+        canvas.width = LOGICAL_WIDTH;
+        canvas.height = LOGICAL_HEIGHT;
+
+        // Elementos da Interface
+        const gameOverlay = document.getElementById('gameOverlay');
+        const overlayTitle = document.getElementById('overlayTitle');
+        const overlaySubtitle = document.getElementById('overlaySubtitle');
+        const btnStart = document.getElementById('btnStart');
+        const btnPause = document.getElementById('btnPause');
+        const btnReset = document.getElementById('btnReset');
+        const btnSound = document.getElementById('btnSound');
+        
+        const btnMode1P = document.getElementById('btnMode1P');
+        const btnMode2P = document.getElementById('btnMode2P');
+        const btnDiffEasy = document.getElementById('btnDiffEasy');
+        const btnDiffMedium = document.getElementById('btnDiffMedium');
+        const btnDiffHard = document.getElementById('btnDiffHard');
+        const difficultyContainer = document.getElementById('difficultyContainer');
+
+        const scoreP1El = document.getElementById('scoreP1');
+        const scoreP2El = document.getElementById('scoreP2');
+        const player1NameEl = document.getElementById('player1Name');
+        const player2NameEl = document.getElementById('player2Name');
+        const p2ControlHint = document.getElementById('p2ControlHint');
+
+        // Estado do Jogo
+        let gameRunning = false;
+        let isPaused = false;
+        let gameMode = '1P'; // '1P' ou '2P'
+        let aiDifficulty = 'medium'; // 'easy', 'medium', 'hard'
+        let WINNING_SCORE = 7;
+
+        let scoreP1 = 0;
+        let scoreP2 = 0;
+
+        // Mapeamento de Teclas
+        const keys = {
+            w: false,
+            s: false,
+            ArrowUp: false,
+            ArrowDown: false
+        };
+
+        const paddleWidth = 12;
+        const paddleHeight = 80;
+
+        const player1 = {
+            x: 20,
+            y: LOGICAL_HEIGHT / 2 - paddleHeight / 2,
+            width: paddleWidth,
+            height: paddleHeight,
+            vy: 0,
+            speed: 7,
+            color: '#00f3ff'
+        };
+
+        const player2 = {
+            x: LOGICAL_WIDTH - 20 - paddleWidth,
+            y: LOGICAL_HEIGHT / 2 - paddleHeight / 2,
+            width: paddleWidth,
+            height: paddleHeight,
+            vy: 0,
+            speed: 7,
+            color: '#ff007f'
+        };
+
+        const ball = {
+            x: LOGICAL_WIDTH / 2,
+            y: LOGICAL_HEIGHT / 2,
+            radius: 7,
+            vx: 5,
+            vy: 3,
+            speed: 6.5,
+            color: '#ffffff',
+            trail: []
+        };
+
+        // Sistema de Partículas para impactos
+        let particles = [];
+
+        function createImpactParticles(x, y, color) {
+            for (let i = 0; i < 15; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    radius: Math.random() * 3 + 1,
+                    color: color,
+                    alpha: 1,
+                    decay: Math.random() * 0.03 + 0.02
+                });
+            }
+        }
+
+        function resetBall(direction = 1) {
+            ball.x = LOGICAL_WIDTH / 2;
+            ball.y = LOGICAL_HEIGHT / 2;
+            ball.speed = 6.5;
+            
+            // Ângulo aleatório entre -30 e 30 graus
+            const angle = (Math.random() * 60 - 30) * (Math.PI / 180);
+            ball.vx = direction * ball.speed * Math.cos(angle);
+            ball.vy = ball.speed * Math.sin(angle);
+            ball.trail = [];
+        }
+
+        function updateAI() {
+            const targetY = ball.y - player2.height / 2;
+            const diff = targetY - player2.y;
+
+            let reactionSpeed = 0.08;
+            let errorMargin = 0;
+
+            if (aiDifficulty === 'easy') {
+                reactionSpeed = 0.04;
+                errorMargin = 25;
+            } else if (aiDifficulty === 'medium') {
+                reactionSpeed = 0.08;
+                errorMargin = 10;
+            } else if (aiDifficulty === 'hard') {
+                reactionSpeed = 0.16;
+                errorMargin = 0;
+            }
+
+            // A IA só reage se a bola estiver vindo em sua direção
+            if (ball.vx > 0) {
+                if (Math.abs(diff) > errorMargin) {
+                    player2.y += diff * reactionSpeed;
+                }
+            } else {
+                // Retorna suavemente ao centro quando a bola se afasta
+                const centerY = LOGICAL_HEIGHT / 2 - player2.height / 2;
+                player2.y += (centerY - player2.y) * 0.02;
+            }
+
+            // Manter a IA dentro do Canvas
+            player2.y = Math.max(0, Math.min(LOGICAL_HEIGHT - player2.height, player2.y));
+        }
+
+        function update() {
+            if (!gameRunning || isPaused) return;
+
+            // Movimento do Jogador 1 (W/S)
+            if (keys.w) player1.y -= player1.speed;
+            if (keys.s) player1.y += player1.speed;
+            player1.y = Math.max(0, Math.min(LOGICAL_HEIGHT - player1.height, player1.y));
+
+            // Movimento do Jogador 2 (Setas ou IA)
+            if (gameMode === '2P') {
+                if (keys.ArrowUp) player2.y -= player2.speed;
+                if (keys.ArrowDown) player2.y += player2.speed;
+                player2.y = Math.max(0, Math.min(LOGICAL_HEIGHT - player2.height, player2.y));
+            } else {
+                updateAI();
+            }
+
+            // Movimento da Bola e Trilha (Trail Effect)
+            ball.trail.push({ x: ball.x, y: ball.y });
+            if (ball.trail.length > 8) ball.trail.shift();
+
+            ball.x += ball.vx;
+            ball.y += ball.vy;
+
+            // Colisão com Paredes Superiores/Inferiores
+            if (ball.y - ball.radius <= 0) {
+                ball.y = ball.radius;
+                ball.vy *= -1;
+                sound.playWallHit();
+                createImpactParticles(ball.x, ball.y, '#ffffff');
+            } else if (ball.y + ball.radius >= LOGICAL_HEIGHT) {
+                ball.y = LOGICAL_HEIGHT - ball.radius;
+                ball.vy *= -1;
+                sound.playWallHit();
+                createImpactParticles(ball.x, ball.y, '#ffffff');
+            }
+
+            // Colisão com Jogador 1
+            if (ball.x - ball.radius <= player1.x + player1.width &&
+                ball.x + ball.radius >= player1.x &&
+                ball.y >= player1.y &&
+                ball.y <= player1.y + player1.height) {
+
+                ball.x = player1.x + player1.width + ball.radius;
+                
+                // Calcular ângulo de rebatida baseado no ponto do impacto na raquete
+                let collidePoint = (ball.y - (player1.y + player1.height / 2)) / (player1.height / 2);
+                let angleRad = (Math.PI / 4) * collidePoint; // Ângulo máximo de 45 graus
+
+                ball.speed += 0.3; // Aceleração gradual a cada rebatida
+                ball.vx = ball.speed * Math.cos(angleRad);
+                ball.vy = ball.speed * Math.sin(angleRad);
+
+                sound.playPaddleHit();
+                createImpactParticles(ball.x, ball.y, player1.color);
+            }
+
+            // Colisão com Jogador 2
+            if (ball.x + ball.radius >= player2.x &&
+                ball.x - ball.radius <= player2.x + player2.width &&
+                ball.y >= player2.y &&
+                ball.y <= player2.y + player2.height) {
+
+                ball.x = player2.x - ball.radius;
+
+                let collidePoint = (ball.y - (player2.y + player2.height / 2)) / (player2.height / 2);
+                let angleRad = (Math.PI / 4) * collidePoint;
+
+                ball.speed += 0.3;
+                ball.vx = -ball.speed * Math.cos(angleRad);
+                ball.vy = ball.speed * Math.sin(angleRad);
+
+                sound.playPaddleHit();
+                createImpactParticles(ball.x, ball.y, player2.color);
+            }
+
+            // Ponto marcado (Jogador 2 ganha ponto)
+            if (ball.x - ball.radius <= 0) {
+                scoreP2++;
+                scoreP2El.textContent = scoreP2;
+                sound.playScore();
+                createImpactParticles(ball.x, ball.y, '#ff007f');
+                checkWinCondition();
+                resetBall(1);
+            }
+
+            // Ponto marcado (Jogador 1 ganha ponto)
+            if (ball.x + ball.radius >= LOGICAL_WIDTH) {
+                scoreP1++;
+                scoreP1El.textContent = scoreP1;
+                sound.playScore();
+                createImpactParticles(ball.x, ball.y, '#00f3ff');
+                checkWinCondition();
+                resetBall(-1);
+            }
+
+            // Atualização de Partículas
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.decay;
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function checkWinCondition() {
+            if (scoreP1 >= WINNING_SCORE || scoreP2 >= WINNING_SCORE) {
+                gameRunning = false;
+                sound.playWin();
+
+                const winner = scoreP1 >= WINNING_SCORE 
+                    ? "JOGADOR 1 VENCEU!" 
+                    : (gameMode === '1P' ? "A IA VENCEU!" : "JOGADOR 2 VENCEU!");
+                
+                const winnerColor = scoreP1 >= WINNING_SCORE ? "text-cyan-400" : "text-pink-500";
+
+                overlayTitle.className = `text-3xl sm:text-5xl font-black ${winnerColor} mb-4 tracking-wider`;
+                overlayTitle.textContent = winner;
+                overlaySubtitle.textContent = `Placar final: ${scoreP1} x ${scoreP2}`;
+                btnStart.textContent = "JOGAR NOVAMENTE";
+                gameOverlay.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+            }
+        }
+
+        function draw() {
+            // Limpar Tela com Rastro Suave (Motion Blur retro)
+            ctx.fillStyle = 'rgba(8, 7, 17, 0.4)';
+            ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+
+            // Redesenhar fundo limpo se pausado
+            if (isPaused) {
+                ctx.fillStyle = '#080711';
+                ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+            }
+
+            // Desenhar Linha Central Pontilhada Neon
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(LOGICAL_WIDTH / 2, 0);
+            ctx.lineTo(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT);
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset linha pontilhada
+
+            // Desenhar Raquete Jogador 1 (Neon Cyan)
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = player1.color;
+            ctx.fillStyle = player1.color;
+            ctx.beginPath();
+            ctx.roundRect(player1.x, player1.y, player1.width, player1.height, 6);
+            ctx.fill();
+
+            // Desenhar Raquete Jogador 2 (Neon Pink)
+            ctx.shadowColor = player2.color;
+            ctx.fillStyle = player2.color;
+            ctx.beginPath();
+            ctx.roundRect(player2.x, player2.y, player2.width, player2.height, 6);
+            ctx.fill();
+
+            // Desenhar Trilha da Bola
+            for (let i = 0; i < ball.trail.length; i++) {
+                const pt = ball.trail[i];
+                const alpha = (i + 1) / ball.trail.length;
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, ball.radius * (alpha * 0.8), 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(0, 243, 255, ${alpha * 0.4})`;
+                ctx.fill();
+            }
+
+            // Desenhar Bola
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = '#00f3ff';
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Resetar Efeitos de Brilho Shadow para performance
+            ctx.shadowBlur = 0;
+
+            // Desenhar Partículas de Impacto
+            for (let p of particles) {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Overlay de Pausa Visual no Canvas
+            if (isPaused && gameRunning) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+                ctx.font = '900 36px Orbitron';
+                ctx.fillStyle = '#00f3ff';
+                ctx.textAlign = 'center';
+                ctx.fillText('JOGO PAUSADO', LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2);
+            }
+        }
+
+        // Loop Principal do Jogo
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'w' || e.key === 'W') keys.w = true;
+            if (e.key === 's' || e.key === 'S') keys.s = true;
+            if (e.key === 'ArrowUp') keys.ArrowUp = true;
+            if (e.key === 'ArrowDown') keys.ArrowDown = true;
+            if (e.code === 'Space') togglePause();
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'w' || e.key === 'W') keys.w = false;
+            if (e.key === 's' || e.key === 'S') keys.s = false;
+            if (e.key === 'ArrowUp') keys.ArrowUp = false;
+            if (e.key === 'ArrowDown') keys.ArrowDown = false;
+        });
+
+        // Controle por Mover o Mouse
+        canvas.addEventListener('mousemove', (e) => {
+            if (!gameRunning || isPaused) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleY = LOGICAL_HEIGHT / rect.height;
+            const mouseY = (e.clientY - rect.top) * scaleY;
+            player1.y = mouseY - player1.height / 2;
+            player1.y = Math.max(0, Math.min(LOGICAL_HEIGHT - player1.height, player1.y));
+        });
+
+        // Suporte para Dispositivos Touch
+        canvas.addEventListener('touchmove', (e) => {
+            if (!gameRunning || isPaused) return;
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const scaleY = LOGICAL_HEIGHT / rect.height;
+            const touchY = (e.touches[0].clientY - rect.top) * scaleY;
+            player1.y = touchY - player1.height / 2;
+            player1.y = Math.max(0, Math.min(LOGICAL_HEIGHT - player1.height, player1.y));
+        }, { passive: false });
+
+        function togglePause() {
+            if (!gameRunning) return;
+            isPaused = !isPaused;
+            btnPause.innerHTML = isPaused ? '<span>CONTINUAR</span>' : '<span>PAUSAR</span>';
+        }
+
+        function resetGame() {
+            scoreP1 = 0;
+            scoreP2 = 0;
+            scoreP1El.textContent = '0';
+            scoreP2El.textContent = '0';
+            player1.y = LOGICAL_HEIGHT / 2 - paddleHeight / 2;
+            player2.y = LOGICAL_HEIGHT / 2 - paddleHeight / 2;
+            resetBall();
+        }
+
+        function startGame() {
+            sound.init();
+            resetGame();
+            gameRunning = true;
+            isPaused = false;
+            btnPause.innerHTML = '<span>PAUSAR</span>';
+            gameOverlay.classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => gameOverlay.classList.add('hidden'), 300);
+        }
+
+        // Listeners dos Botões da Interface
+        btnStart.addEventListener('click', startGame);
+
+        btnPause.addEventListener('click', togglePause);
+
+        btnReset.addEventListener('click', () => {
+            resetGame();
+            if (!gameRunning) {
+                overlayTitle.textContent = "PRONTO PARA JOGAR?";
+                overlaySubtitle.textContent = "Escolha o modo de jogo, ajuste a dificuldade e clique em Iniciar para entrar na arena.";
+                btnStart.textContent = "INICIAR PARTIDA";
+                gameOverlay.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+            }
+        });
+
+        btnSound.addEventListener('click', () => {
+            sound.enabled = !sound.enabled;
+            btnSound.textContent = sound.enabled ? '🔊' : '🔇';
+            btnSound.classList.toggle('opacity-50', !sound.enabled);
+        });
+
+        // Seleção de Modo
+        btnMode1P.addEventListener('click', () => {
+            gameMode = '1P';
+            btnMode1P.classList.add('btn-neon-active');
+            btnMode2P.classList.remove('btn-neon-active');
+            difficultyContainer.classList.remove('hidden');
+            player2NameEl.textContent = 'IA';
+            p2ControlHint.classList.add('hidden');
+        });
+
+        btnMode2P.addEventListener('click', () => {
+            gameMode = '2P';
+            btnMode2P.classList.add('btn-neon-active');
+            btnMode1P.classList.remove('btn-neon-active');
+            difficultyContainer.classList.add('hidden');
+            player2NameEl.textContent = 'JOGADOR 2';
+            p2ControlHint.classList.remove('hidden');
+        });
+
+        // Seleção de Dificuldade
+        const diffButtons = [
+            { el: btnDiffEasy, val: 'easy' },
+            { el: btnDiffMedium, val: 'medium' },
+            { el: btnDiffHard, val: 'hard' }
+        ];
+
+        diffButtons.forEach(item => {
+            item.el.addEventListener('click', () => {
+                diffButtons.forEach(b => b.el.classList.remove('btn-neon-active'));
+                item.el.classList.add('btn-neon-active');
+                aiDifficulty = item.val;
+            });
+        });
+
+        window.onload = function () {
+            // Ocultar dica do P2 se iniciar em modo 1P
+            p2ControlHint.classList.add('hidden');
+            
+            // Iniciar loop do Canvas
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
